@@ -19,3 +19,9 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+
+def reset_db():
+    """Удаляет и пересоздаёт все таблицы (только для разработки)"""
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    print("✅ База данных сброшена и пересоздана!")

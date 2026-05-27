@@ -5,18 +5,17 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 from app.models.user import User
-from app.services.balance import claim_daily_bonus, get_user_balance
+from app.services.balance import claim_daily_bonus
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://frontend-mu-eight-v22bi7khqy.vercel.app")
 
-def get_or_create_user(db: Session, telegram_id: int, username: str, first_name: str) -> User:
+def get_or_create_user(db: Session, telegram_id: int, username: str) -> User:
     user = db.query(User).filter(User.telegram_id == telegram_id).first()
     if not user:
         user = User(
             telegram_id=telegram_id,
-            username=username,
-            first_name=first_name,
+            username=username or str(telegram_id),
             balance=5000
         )
         db.add(user)
@@ -27,7 +26,7 @@ def get_or_create_user(db: Session, telegram_id: int, username: str, first_name:
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     db = SessionLocal()
-    get_or_create_user(db, user.id, user.username, user.first_name)
+    get_or_create_user(db, user.id, user.username)
     db.close()
     
     keyboard = InlineKeyboardMarkup([
@@ -42,17 +41,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(
         f"🔥 <b>Multiplayer Arena</b>\n\n"
-        f"Привет, {user.first_name}!\n\n"
+        f"Привет, {user.first_name or user.username}!\n\n"
         f"🎯 <b>Играй и зарабатывай звёзды!</b>\n\n"
         f"⚔️ <b>Доступные игры:</b>\n"
         f"• <code>Дуэль Кликеров</code> — кто быстрее кликает (3⭐)\n"
         f"• <code>Гонки на выживание</code> — набери больше очков (5⭐)\n"
         f"• <code>Кликер Дуэль</code> — классика жанра (2⭐)\n"
         f"• <code>Шахматы на скорость</code> — быстрые партии (10⭐)\n\n"
-        f"🎁 <b>Бонусы:</b>\n"
-        f"• Ежедневный бонус — до 25⭐\n"
-        f"• Реферальная программа — 10% от ставок друга\n"
-        f"• Турниры каждую субботу — большой призовой фонд\n\n"
         f"👇 <b>Выбери действие:</b>",
         reply_markup=keyboard,
         parse_mode="HTML"
@@ -93,7 +88,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         users = db.query(User).order_by(User.balance.desc()).limit(10).all()
         text = "🏆 <b>Топ игроков по звёздам</b>\n\n"
         for i, u in enumerate(users, 1):
-            name = u.first_name or str(u.telegram_id)
+            name = u.username or str(u.telegram_id)
             text += f"{i}. {name} — {u.balance}⭐ (Побед: {u.total_wins})\n"
         await query.edit_message_text(text, parse_mode="HTML")
         
@@ -153,15 +148,14 @@ async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not existing:
                 new_user = User(
                     telegram_id=user.id,
-                    username=user.username,
-                    first_name=user.first_name,
+                    username=user.username or str(user.id),
                     referrer_id=referrer_id,
                     balance=5000
                 )
                 db.add(new_user)
                 db.commit()
                 await update.message.reply_text(
-                    f"🎉 Добро пожаловать!\n\nТебя пригласил {referrer.first_name}.\nТы получил 5⭐ бонус!"
+                    f"🎉 Добро пожаловать!\n\nТебя пригласил {referrer.username}.\nТы получил 5⭐ бонус!"
                 )
             else:
                 await update.message.reply_text("Ты уже зарегистрирован!")
@@ -176,7 +170,6 @@ async def main_bot():
     await app.initialize()
     await app.start()
     await app.updater.start_polling()
-    # Keep running
     while True:
         await asyncio.sleep(1)
 
