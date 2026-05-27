@@ -1,10 +1,11 @@
 import os
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 from app.models.user import User
-from app.services.balance import claim_daily_bonus, can_claim_daily_bonus, get_user_balance
+from app.services.balance import claim_daily_bonus, get_user_balance
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://frontend-mu-eight-v22bi7khqy.vercel.app")
@@ -52,7 +53,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• Ежедневный бонус — до 25⭐\n"
         f"• Реферальная программа — 10% от ставок друга\n"
         f"• Турниры каждую субботу — большой призовой фонд\n\n"
-        f"💰 <b>Твой баланс:</b> 5 ⭐ (бонус)\n"
         f"👇 <b>Выбери действие:</b>",
         reply_markup=keyboard,
         parse_mode="HTML"
@@ -168,9 +168,19 @@ async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.close()
     await start(update, context)
 
-def start_bot():
+async def main_bot():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", handle_referral))
     app.add_handler(CallbackQueryHandler(callback_handler))
     print("🤖 Бот запущен!")
-    app.run_polling()
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
+    # Keep running
+    while True:
+        await asyncio.sleep(1)
+
+def start_bot():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(main_bot())
