@@ -11,7 +11,7 @@ class GameSession(Base):
     player1_id = Column(BigInteger)
     player2_id = Column(BigInteger, nullable=True)
     bet = Column(Integer)
-    status = Column(String, default="waiting")  # waiting, active, finished, cancelled
+    status = Column(String, default="waiting")
     winner_id = Column(BigInteger, nullable=True)
     player1_score = Column(Integer, default=0)
     player2_score = Column(Integer, default=0)
@@ -28,7 +28,7 @@ class Tournament(Base):
     prize_pool = Column(Integer)
     max_players = Column(Integer)
     current_players = Column(Integer, default=0)
-    status = Column(String, default="pending")  # pending, active, finished
+    status = Column(String, default="pending")
     winner_id = Column(BigInteger, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     started_at = Column(DateTime, nullable=True)

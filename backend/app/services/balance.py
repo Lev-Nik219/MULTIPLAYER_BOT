@@ -57,11 +57,11 @@ def claim_daily_bonus(db: Session, telegram_id: int) -> dict:
     
     if user.last_daily_bonus and datetime.utcnow() - user.last_daily_bonus < timedelta(days=1):
         next_claim = user.last_daily_bonus + timedelta(days=1)
-        return {"success": False, "message": f"Next bonus in {(next_claim - datetime.utcnow()).seconds // 3600} hours"}
+        hours_left = (next_claim - datetime.utcnow()).seconds // 3600
+        return {"success": False, "message": f"Next bonus in {hours_left} hours"}
     
-    # Бонус зависит от стрика
     bonus = 5 + (user.daily_bonus_streak // 7) * 2
-    bonus = min(bonus, 25)  # максимум 25 звёзд
+    bonus = min(bonus, 25)
     
     user.balance += bonus
     user.daily_bonus_streak += 1

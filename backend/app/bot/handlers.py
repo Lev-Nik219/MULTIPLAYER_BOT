@@ -2,7 +2,10 @@ import os
 import asyncio
 from typing import Dict, Any
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, PreCheckoutQueryHandler, MessageHandler, filters
+from telegram.ext import (
+    Application, CommandHandler, CallbackQueryHandler, 
+    ContextTypes, PreCheckoutQueryHandler, MessageHandler, filters
+)
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 from app.models.user import User
@@ -19,7 +22,9 @@ STARS_PRODUCTS: Dict[str, Dict[str, Any]] = {
     "stars_500": {"label": "560 ⭐", "price": 500, "bonus": 60},
 }
 
+
 def get_or_create_user(db: Session, telegram_id: int, username: str) -> User:
+    """Получает или создаёт пользователя"""
     user = db.query(User).filter(User.telegram_id == telegram_id).first()
     if not user:
         user = User(
@@ -32,7 +37,9 @@ def get_or_create_user(db: Session, telegram_id: int, username: str) -> User:
         db.refresh(user)
     return user
 
+
 def get_main_keyboard(user_id: int = None) -> InlineKeyboardMarkup:
+    """Главное меню"""
     webapp_url = f"{WEBAPP_URL}?id={user_id}" if user_id else WEBAPP_URL
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🎮 Играть", web_app=WebAppInfo(url=webapp_url))],
@@ -44,18 +51,23 @@ def get_main_keyboard(user_id: int = None) -> InlineKeyboardMarkup:
         [InlineKeyboardButton("ℹ️ Помощь", callback_data="help")]
     ])
 
+
 def get_back_button() -> InlineKeyboardMarkup:
+    """Кнопка назад"""
     return InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back")]])
+
 
 async def delete_webhook():
     """Удаляет старый webhook при запуске бота"""
     app = Application.builder().token(BOT_TOKEN).build()
     await app.initialize()
     result = await app.bot.delete_webhook(drop_pending_updates=True)
-    print(f"✅ Webhook удалён: {result}, старые обновления сброшены")
+    print(f"✅ Webhook удалён: {result}")
     await app.shutdown()
 
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /start"""
     user = update.effective_user
     db = SessionLocal()
     get_or_create_user(db, user.id, user.username)
@@ -67,15 +79,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🎯 <b>Играй и зарабатывай звёзды!</b>\n\n"
         f"⚔️ <b>Доступные игры:</b>\n"
         f"• <code>Дуэль Кликеров</code> — кто быстрее кликает (3⭐)\n"
-        f"• <code>Гонки на выживание</code> — набери больше очков (5⭐)\n"
         f"• <code>Кликер Дуэль</code> — классика жанра (2⭐)\n"
+        f"• <code>Гонки на выживание</code> — набери больше очков (5⭐)\n"
         f"• <code>Шахматы на скорость</code> — быстрые партии (10⭐)\n\n"
         f"👇 <b>Выбери действие:</b>",
         reply_markup=get_main_keyboard(user.id),
         parse_mode="HTML"
     )
 
+
 async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик callback-кнопок"""
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
@@ -188,19 +202,22 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     db.close()
 
+
 async def pre_checkout_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик предварительной проверки платежа"""
     query = update.pre_checkout_query
     await query.answer(ok=True)
 
+
 async def successful_payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик успешного платежа"""
     user_id = update.effective_user.id
     payload = update.message.successful_payment.invoice_payload
     product = STARS_PRODUCTS.get(payload)
     
     if product:
         db = SessionLocal()
-        total_stars = product["price"] // 100
-        total_stars += product["bonus"]
+        total_stars = product["price"] // 100 + product["bonus"]
         add_stars(db, user_id, total_stars)
         db.close()
         
@@ -213,15 +230,20 @@ async def successful_payment_handler(update: Update, context: ContextTypes.DEFAU
             reply_markup=get_back_button()
         )
 
+
 async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик реферальной ссылки"""
     db = SessionLocal()
     referrer_id = context.args[0] if context.args else None
+    
     if referrer_id and referrer_id.isdigit():
         referrer_id = int(referrer_id)
         referrer = db.query(User).filter(User.telegram_id == referrer_id).first()
+        
         if referrer:
             user = update.effective_user
             existing = db.query(User).filter(User.telegram_id == user.id).first()
+            
             if not existing:
                 new_user = User(
                     telegram_id=user.id,
@@ -230,8 +252,8 @@ async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     balance=5000
                 )
                 db.add(new_user)
-                db.commit()
                 
+                # Начисляем бонус рефереру
                 referrer.referral_count += 1
                 referrer.referral_earnings += 500
                 referrer.balance += 500
@@ -245,26 +267,37 @@ async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             else:
                 await update.message.reply_text("Ты уже зарегистрирован!")
+    
     db.close()
     await start(update, context)
 
+
 async def main_bot():
+    """Главная функция запуска бота"""
     # Сначала удаляем старый webhook
     await delete_webhook()
     
+    # Создаём и настраиваем приложение
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", handle_referral))
     app.add_handler(CallbackQueryHandler(callback_handler))
     app.add_handler(PreCheckoutQueryHandler(pre_checkout_handler))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_handler))
+    
     print("🤖 Бот запущен!")
+    
+    # Запускаем polling
     await app.initialize()
     await app.start()
     await app.updater.start_polling()
+    
+    # Держим бота активным
     while True:
         await asyncio.sleep(1)
 
+
 def start_bot():
+    """Точка входа для бота"""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.run_until_complete(main_bot())

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 from app.services.game_logic import (
     add_to_queue, remove_from_queue, get_queue_size,
-    active_games, DuelClickerGame, finish_game
+    active_games, DuelClickerGame
 )
 
 router = APIRouter()
@@ -27,6 +27,7 @@ class ConnectionManager:
             await ws.send_json(message)
 
 manager = ConnectionManager()
+
 
 @router.websocket("/{telegram_id}")
 async def websocket_endpoint(websocket: WebSocket, telegram_id: int):
@@ -85,7 +86,6 @@ async def websocket_endpoint(websocket: WebSocket, telegram_id: int):
                 if game:
                     result = game.add_click(telegram_id)
                     if result["success"]:
-                        # Отправляем обновление сопернику
                         opponent = game.player1 if game.player2 == telegram_id else game.player2
                         await manager.send_message(opponent, {
                             "type": "opponent_click",
