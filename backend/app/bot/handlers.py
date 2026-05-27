@@ -47,6 +47,14 @@ def get_main_keyboard(user_id: int = None) -> InlineKeyboardMarkup:
 def get_back_button() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back")]])
 
+async def delete_webhook():
+    """Удаляет старый webhook при запуске бота"""
+    app = Application.builder().token(BOT_TOKEN).build()
+    await app.initialize()
+    result = await app.bot.delete_webhook(drop_pending_updates=True)
+    print(f"✅ Webhook удалён: {result}, старые обновления сброшены")
+    await app.shutdown()
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     db = SessionLocal()
@@ -224,7 +232,6 @@ async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 db.add(new_user)
                 db.commit()
                 
-                # Начисляем бонус рефереру
                 referrer.referral_count += 1
                 referrer.referral_earnings += 500
                 referrer.balance += 500
@@ -242,6 +249,9 @@ async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await start(update, context)
 
 async def main_bot():
+    # Сначала удаляем старый webhook
+    await delete_webhook()
+    
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", handle_referral))
     app.add_handler(CallbackQueryHandler(callback_handler))
