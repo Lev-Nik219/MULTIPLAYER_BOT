@@ -3,7 +3,8 @@ import asyncio
 from typing import Dict, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
-from app.models.user import User, GameSession
+from app.models.user import User
+from app.models.game import GameSession
 from app.services.balance import add_win, add_loss, deduct_stars
 
 # Хранилище активных игр в памяти (для реального времени)

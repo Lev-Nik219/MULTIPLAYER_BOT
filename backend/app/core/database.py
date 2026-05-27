@@ -18,10 +18,13 @@ def get_db():
         db.close()
 
 def init_db():
+    # Импортируем все модели, чтобы они зарегистрировались в Base
+    from app.models import User, GameSession, Tournament
     Base.metadata.create_all(bind=engine)
 
 def reset_db():
     """Удаляет и пересоздаёт все таблицы (только для разработки)"""
+    from app.models import User, GameSession, Tournament
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     print("✅ База данных сброшена и пересоздана!")

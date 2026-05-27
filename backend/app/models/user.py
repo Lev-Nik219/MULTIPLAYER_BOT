@@ -8,7 +8,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     telegram_id = Column(BigInteger, unique=True, index=True, nullable=False)
     username = Column(String, nullable=True)
-    balance = Column(Integer, default=5000)  # в звёздах
+    balance = Column(Integer, default=5000)
     total_wins = Column(Integer, default=0)
     total_games = Column(Integer, default=0)
     total_losses = Column(Integer, default=0)
