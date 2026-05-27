@@ -1,0 +1,11 @@
+@'
+venv/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+.vercel
+node_modules/
+dist/
+*.log
+'@ | Out-File -FilePath .gitignore -Encoding utf8
