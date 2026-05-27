@@ -1,8 +1,8 @@
 import os
 import asyncio
-from telegram.ext import MessageHandler, filters
+from typing import Dict, Any
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, PreCheckoutQueryHandler
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, PreCheckoutQueryHandler, MessageHandler, filters
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 from app.models.user import User
@@ -12,7 +12,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://frontend-mu-eight-v22bi7khqy.vercel.app")
 
 # Telegram Stars товары
-STARS_PRODUCTS = {
+STARS_PRODUCTS: Dict[str, Dict[str, Any]] = {
     "stars_50": {"label": "50 ⭐", "price": 50, "bonus": 0},
     "stars_100": {"label": "105 ⭐", "price": 100, "bonus": 5},
     "stars_250": {"label": "270 ⭐", "price": 250, "bonus": 20},
@@ -32,9 +32,10 @@ def get_or_create_user(db: Session, telegram_id: int, username: str) -> User:
         db.refresh(user)
     return user
 
-def get_main_keyboard():
+def get_main_keyboard(user_id: int = None) -> InlineKeyboardMarkup:
+    webapp_url = f"{WEBAPP_URL}?id={user_id}" if user_id else WEBAPP_URL
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎮 Играть", web_app=WebAppInfo(url=f"{WEBAPP_URL}?id={user.id}"))],
+        [InlineKeyboardButton("🎮 Играть", web_app=WebAppInfo(url=webapp_url))],
         [InlineKeyboardButton("💰 Ежедневный бонус", callback_data="daily")],
         [InlineKeyboardButton("🏆 Топ игроков", callback_data="top"),
          InlineKeyboardButton("📊 Моя статистика", callback_data="stats")],
@@ -43,7 +44,7 @@ def get_main_keyboard():
         [InlineKeyboardButton("ℹ️ Помощь", callback_data="help")]
     ])
 
-def get_back_button():
+def get_back_button() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back")]])
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -62,7 +63,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• <code>Кликер Дуэль</code> — классика жанра (2⭐)\n"
         f"• <code>Шахматы на скорость</code> — быстрые партии (10⭐)\n\n"
         f"👇 <b>Выбери действие:</b>",
-        reply_markup=get_main_keyboard(),
+        reply_markup=get_main_keyboard(user.id),
         parse_mode="HTML"
     )
 
@@ -75,7 +76,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "back":
         await query.edit_message_text(
             "👇 <b>Выбери действие:</b>",
-            reply_markup=get_main_keyboard(),
+            reply_markup=get_main_keyboard(user_id),
             parse_mode="HTML"
         )
         db.close()
@@ -186,12 +187,11 @@ async def pre_checkout_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 async def successful_payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     payload = update.message.successful_payment.invoice_payload
-    product_key = payload.replace("stars_", "buy_")
     product = STARS_PRODUCTS.get(payload)
     
     if product:
         db = SessionLocal()
-        total_stars = product["price"] // 100  # Telegram Stars в звёздах
+        total_stars = product["price"] // 100
         total_stars += product["bonus"]
         add_stars(db, user_id, total_stars)
         db.close()
