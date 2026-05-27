@@ -34,12 +34,9 @@ def root():
 def health():
     return {"status": "ok"}
 
-# Запуск бота в фоновом потоке
-def run_bot():
-    start_bot()
-
 if __name__ == "__main__":
-    bot_thread = threading.Thread(target=run_bot, daemon=True)
+    # Запускаем бота в отдельном потоке
+    bot_thread = threading.Thread(target=start_bot, daemon=True)
     bot_thread.start()
     print("🚀 Запуск сервера...")
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 10000)))
